@@ -7,8 +7,11 @@ import com.example.checkout.request.ScanRequest;
 import com.example.checkout.service.CheckoutService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/checkout")
@@ -16,108 +19,115 @@ import org.springframework.web.bind.annotation.*;
 @Validated
 public class CheckoutController {
 
+    private static final String RECEIPT_HEADER = "Receipt:\n";
+    private static final String NO_ITEMS_MESSAGE = "No items in the cart.\n";
+
     @Autowired
     private CheckoutService checkoutService;
+
+    /**
+        Cart is stored in session
+    **/
     @ModelAttribute("cart")
     public Cart initializeCart() {
         return new Cart();
     }
 
-    /**
-     * Adds an item to the virtual checkout cart by passing the item details.
-     */
     @PostMapping("/scan")
-    public void scanItem(@Valid @RequestBody ScanRequest scanRequest, @ModelAttribute("cart") Cart cart) {
-        Item item = checkoutService.getInventory().stream()
-                .filter(i -> i.getId().equals(scanRequest.getItemId()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Item not found in inventory"));
-
-        checkoutService.scanItem(item, cart, scanRequest.getQuantity());
+    public void addItemToCart(@Valid @RequestBody ScanRequest scanRequest, @ModelAttribute("cart") Cart cart) {
+        try {
+            Item item = findItemById(scanRequest.getItemId());
+            checkoutService.scanItem(item, cart, scanRequest.getQuantity());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
+        }
     }
 
-
-    /**
-     * Calculates the total cost of the items in the cart, applying any relevant discounts.
-     * returns the total cost after applying discounts.
-     */
     @GetMapping("/total")
-    public double getTotal(@ModelAttribute("cart") Cart cart) {
+    public double calculateTotal(@ModelAttribute("cart") Cart cart) {
         return checkoutService.calculateTotal(checkoutService.getInventory(), checkoutService.getDiscounts(), cart);
     }
 
-    /**
-     * Processes customer payment and generates a detailed receipt, which includes
-     * the purchased items, any discounts applied, and the total cost. After the receipt is generated, the cart is reset for the next transaction.
-     * returns A string representation of the receipt detailing the transaction, purchased items, applied discounts, and total cost.
-     */
     @PostMapping("/pay")
-    public String payAndGenerateReceipt(@ModelAttribute("cart") Cart cart) {
-        double total = checkoutService.calculateTotal(checkoutService.getInventory(), checkoutService.getDiscounts(),cart);
+    public String processPaymentAndGenerateReceipt(@ModelAttribute("cart") Cart cart) {
+        double totalCost = calculateTotal(cart);
 
-        StringBuilder receipt = new StringBuilder("Receipt:\n");
-
+        StringBuilder receipt = new StringBuilder(RECEIPT_HEADER);
         if (cart.getItems() == null || cart.getItems().isEmpty()) {
-            receipt.append("No items in the cart.\n");
-            receipt.append("\nTotal: ").append(total).append("\n");
+            receipt.append(NO_ITEMS_MESSAGE)
+                    .append("\nTotal: ").append(totalCost).append("\n");
             return receipt.toString();
         }
 
-        receipt.append("\nPurchased Items:\n");
-        cart.getItems().forEach((id, quantity) -> {
-            Item item = checkoutService.getInventory().stream().filter(i -> i.getId().equals(id)).findFirst().orElse(null);
-            if (item != null) {
-                if (item.getBulkQuantity() > 0 && quantity >= item.getBulkQuantity()) {
-                    int bulkSets = quantity / item.getBulkQuantity();
-                    int remainder = quantity % item.getBulkQuantity();
-                    double bulkPrice = bulkSets * item.getBulkQuantity() * item.getBulkPrice();
-                    double remainderPrice = remainder * item.getPrice();
-                    receipt.append(item.getName())
-                            .append(" x ")
-                            .append(quantity)
-                            .append(" (").append(bulkSets).append(" bulk at ").append(item.getBulkPrice()).append(", ").append(remainder).append(" at regular price)")
-                            .append(" = ").append(bulkPrice + remainderPrice)
-                            .append("\n");
-                } else {
-                    receipt.append(item.getName())
-                            .append(" x ")
-                            .append(quantity)
-                            .append(" = ")
-                            .append(quantity * item.getPrice())
-                            .append("\n");
-                }
-            } else {
-                receipt.append("Unknown Item ID: ").append(id).append("\n");
-            }
-        });
+        receipt.append(buildItemsDetails(cart));
+        String discountDetails = buildDiscountDetails(cart);
+        if (!discountDetails.isEmpty()) {
+            receipt.append("\nApplied Discounts:\n").append(discountDetails);
+        }
 
-        boolean discountsApplied = false;
-        StringBuilder discountDetails = new StringBuilder("\nApplied Discounts:\n");
+        receipt.append("\nTotal: ").append(totalCost).append("\n");
+        checkoutService.resetCart(cart);
+        return receipt.toString();
+    }
+
+    @GetMapping("/cart")
+    public Cart getCartContents(@ModelAttribute("cart") Cart cart) {
+        return checkoutService.getCart(cart);
+    }
+
+    @PutMapping("/reset")
+    public ResponseEntity<String> resetCart(@ModelAttribute("cart") Cart cart) {
+        checkoutService.resetCart(cart);
+        return ResponseEntity.ok("Cart has been reset successfully");
+    }
+
+
+
+
+    /** Utility methods */
+
+    private Item findItemById(String itemId) {
+        return checkoutService.getInventory().stream()
+                .filter(item -> item.getId().equals(itemId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Item not found in inventory"));
+    }
+
+    private String buildItemsDetails(Cart cart) {
+        StringBuilder itemDetails = new StringBuilder("\nPurchased Items:\n");
+        cart.getItems().forEach((id, quantity) -> {
+            Item item = findItemById(id);
+            itemDetails.append(formatItemDetails(item, quantity));
+        });
+        return itemDetails.toString();
+    }
+
+    private String formatItemDetails(Item item, int quantity) {
+        if (item.getBulkQuantity() > 0 && quantity >= item.getBulkQuantity()) {
+            int bulkSets = quantity / item.getBulkQuantity();
+            int remainder = quantity % item.getBulkQuantity();
+            double bulkPrice = bulkSets * item.getBulkQuantity() * item.getBulkPrice();
+            double remainderPrice = remainder * item.getPrice();
+            return String.format("%s x %d (%d bulk at %.2f, %d at regular price) = %.2f\n",
+                    item.getName(), quantity, bulkSets, item.getBulkPrice(), remainder, bulkPrice + remainderPrice);
+        } else {
+            return String.format("%s x %d = %.2f\n", item.getName(), quantity, quantity * item.getPrice());
+        }
+    }
+
+    private String buildDiscountDetails(Cart cart) {
+        StringBuilder discountDetails = new StringBuilder();
         for (Discount discount : checkoutService.getDiscounts()) {
             int countX = cart.getItems().getOrDefault(discount.getItemX(), 0);
             int countY = cart.getItems().getOrDefault(discount.getItemY(), 0);
             int applicableDiscounts = Math.min(countX, countY);
             if (applicableDiscounts > 0) {
-                discountsApplied = true;
-                discountDetails.append("Buy ").append(discount.getItemX()).append(" with ").append(discount.getItemY())
-                        .append(" discount: -").append(applicableDiscounts * discount.getSavings()).append("\n");
+                discountDetails.append(String.format("Buy %s with %s discount: -%.2f\n",
+                        discount.getItemX(), discount.getItemY(), applicableDiscounts * discount.getSavings()));
             }
         }
-
-        if (discountsApplied) {
-            receipt.append(discountDetails);
-        }
-
-        receipt.append("\nTotal: ").append(total).append("\n");
-        checkoutService.resetCart(cart);
-        return receipt.toString();
-    }
-    @GetMapping("/cart")
-    public Cart getCartContents(Cart cart) {
-        return checkoutService.getCart(cart);
-    }
-    @PostMapping("/reset")
-    public void resetCart(Cart cart) {
-        checkoutService.resetCart(cart);
+        return discountDetails.toString();
     }
 }

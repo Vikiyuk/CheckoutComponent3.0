@@ -1,13 +1,10 @@
 package com.example.checkout;
 
 import com.example.checkout.model.Cart;
-import com.example.checkout.model.Discount;
 import com.example.checkout.model.Item;
 import com.example.checkout.service.CheckoutService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 

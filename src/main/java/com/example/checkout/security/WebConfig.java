@@ -11,9 +11,9 @@
 //    @Override
 //    public void addCorsMappings(CorsRegistry registry) {
 //        registry.addMapping("/**")
-//                /*
+//                /**
 //                    example CORS implementation
-//                */
+//                **/
 ////               .allowedOrigins("http://localhost:3000")
 //
 //                .allowedMethods("GET", "POST", "PUT", "DELETE")

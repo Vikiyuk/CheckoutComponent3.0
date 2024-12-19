@@ -10,13 +10,18 @@ import java.util.Map;
 
 @Service
 public class CheckoutService {
+    /**
+        List of items in inventory, that can also be retrieved from db
+    **/
     private List<Item> inventory = List.of(
             new Item("A", "Apple", 40, 30, 3),
             new Item("B", "Banana", 10, 7.5, 2)
     );
 
 
-
+    /**
+            List of discounts in inventory, that can also be retrieved from db
+    **/
     private List<Discount> discounts = List.of(
             new Discount("A", "B", 5)
     );
