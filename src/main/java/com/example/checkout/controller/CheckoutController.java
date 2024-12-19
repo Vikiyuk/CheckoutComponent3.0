@@ -11,6 +11,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/checkout")
+@SessionAttributes("cart")
 public class CheckoutController {
     List<Item> inventory = List.of(
             new Item("A", "Apple", 40, 30, 3),
@@ -22,16 +23,19 @@ public class CheckoutController {
     );
     @Autowired
     private CheckoutService checkoutService;
-
+    @ModelAttribute("cart")
+    public Cart initializeCart() {
+        return new Cart();
+    }
     /**
      * Adds an item to the virtual checkout cart by passing the item details.
      */
     @PostMapping("/scan")
-    public void scanItem(@RequestBody Item item) {
+    public void scanItem(@RequestBody Item item, @ModelAttribute("cart") Cart cart) {
         if (item == null || item.getId() == null || item.getName() == null) {
             throw new IllegalArgumentException("Invalid item input");
         }
-        checkoutService.scanItem(item);
+        checkoutService.scanItem(item,cart);
     }
 
     /**
@@ -39,9 +43,9 @@ public class CheckoutController {
      * returns the total cost after applying discounts.
      */
     @GetMapping("/total")
-    public double getTotal() {
+    public double getTotal(@ModelAttribute("cart") Cart cart) {
         try {
-            return checkoutService.calculateTotal(inventory, discounts);
+            return checkoutService.calculateTotal(inventory, discounts,cart);
         } catch (Exception e) {
             throw new RuntimeException("Error calculating total: " + e.getMessage());
         }
@@ -53,9 +57,8 @@ public class CheckoutController {
      * returns A string representation of the receipt detailing the transaction, purchased items, applied discounts, and total cost.
      */
     @PostMapping("/pay")
-    public String payAndGenerateReceipt() {
-        double total = checkoutService.calculateTotal(inventory, discounts);
-        Cart cart = checkoutService.getCart();
+    public String payAndGenerateReceipt(@ModelAttribute("cart") Cart cart) {
+        double total = checkoutService.calculateTotal(inventory, discounts,cart);
 
         StringBuilder receipt = new StringBuilder("Receipt:\n");
 
@@ -111,15 +114,15 @@ public class CheckoutController {
         }
 
         receipt.append("\nTotal: ").append(total).append("\n");
-        checkoutService.resetCart();
+        checkoutService.resetCart(cart);
         return receipt.toString();
     }
     @GetMapping("/cart")
-    public Cart getCartContents() {
-        return checkoutService.getCart();
+    public Cart getCartContents(Cart cart) {
+        return checkoutService.getCart(cart);
     }
     @PostMapping("/reset")
-    public void resetCart() {
-        checkoutService.resetCart();
+    public void resetCart(Cart cart) {
+        checkoutService.resetCart(cart);
     }
 }

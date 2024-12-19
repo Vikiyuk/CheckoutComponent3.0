@@ -12,4 +12,7 @@ public class Cart {
     public void setItems(Map<String, Integer> items) {
         this.items = items;
     }
+    public void reset() {
+        items.clear();
+    }
 }

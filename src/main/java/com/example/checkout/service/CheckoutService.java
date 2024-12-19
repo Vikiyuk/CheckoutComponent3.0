@@ -14,7 +14,7 @@ public class CheckoutService {
      * Adds the specified item to the cart. If the item already exists in the cart,
      * its quantity is incremented by one. Otherwise, the item is added with a quantity of one.
      */
-    public void scanItem(Item item) {
+    public void scanItem(Item item,Cart cart) {
         cart.getItems().merge(item.getId(), 1, Integer::sum);
     }
 
@@ -26,7 +26,7 @@ public class CheckoutService {
      *
      * returns the total cost of all items in the cart after applying bulk discounts and other defined discounts
      */
-    public double calculateTotal(List<Item> inventory,List<Discount> discounts) {
+    public double calculateTotal(List<Item> inventory,List<Discount> discounts, Cart cart) {
         double total = 0.0;
         for (Map.Entry<String, Integer> entry : cart.getItems().entrySet()) {
             Item item = findItemById(inventory, entry.getKey());
@@ -55,8 +55,8 @@ public class CheckoutService {
     /**
      * Clears all items from the cart, resetting it to an empty state.
      */
-    public void resetCart() {
-        cart.getItems().clear();
+    public void resetCart(Cart cart) {
+        cart.reset();
     }
 
     /**
@@ -75,7 +75,7 @@ public class CheckoutService {
      * Retrieves the current cart associated with the checkout service.
      * returns the current instance of the Cart containing items and their quantities.
      */
-    public Cart getCart() {
+    public Cart getCart(Cart cart) {
         return cart;
     }
 }
