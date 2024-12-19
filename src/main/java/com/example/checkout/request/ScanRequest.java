@@ -10,7 +10,6 @@ public class ScanRequest {
     @Positive(message = "Quantity must be greater than zero")
     private int quantity;
 
-    // Getters and setters
     public String getItemId() {
         return itemId;
     }

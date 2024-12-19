@@ -86,7 +86,9 @@ public class CheckoutController {
 
 
 
-    /** Utility methods */
+    /**
+     * Utility methods
+     **/
 
     private Item findItemById(String itemId) {
         return checkoutService.getInventory().stream()
