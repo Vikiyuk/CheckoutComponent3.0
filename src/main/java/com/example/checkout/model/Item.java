@@ -8,6 +8,12 @@ public class Item {
     private int bulkQuantity;
 
     public Item(String id, String name, double price, double bulkPrice, int bulkQuantity) {
+        if (id == null || id.trim().isEmpty()) throw new IllegalArgumentException("ID cannot be null or empty");
+        if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Name cannot be null or empty");
+        if (price < 0) throw new IllegalArgumentException("Price cannot be negative");
+        if (bulkPrice < 0) throw new IllegalArgumentException("Bulk price cannot be negative");
+        if (bulkQuantity < 1) throw new IllegalArgumentException("Bulk quantity must be at least 1");
+
         this.id = id;
         this.name = name;
         this.price = price;

@@ -1,21 +1,41 @@
 package com.example.checkout.service;
+
 import com.example.checkout.model.Cart;
 import com.example.checkout.model.Discount;
 import com.example.checkout.model.Item;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class CheckoutService {
     private final Cart cart = new Cart();
+    private List<Item> inventory = List.of(
+            new Item("A", "Apple", 40, 30, 3),
+            new Item("B", "Banana", 10, 7.5, 2)
+    );
+
+
+
+    private List<Discount> discounts = List.of(
+            new Discount("A", "B", 5)
+    );
 
     /**
      * Adds the specified item to the cart. If the item already exists in the cart,
-     * its quantity is incremented by one. Otherwise, the item is added with a quantity of one.
+     * its quantity is incremented by the specified amount. Otherwise, the item is added
+     * with the specified quantity.
      */
-    public void scanItem(Item item,Cart cart) {
-        cart.getItems().merge(item.getId(), 1, Integer::sum);
+    public void scanItem(Item item, Cart cart, int quantity) {
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantity must be greater than zero.");
+        }
+        Item foundItem = findItemById(inventory, item.getId());
+        if (foundItem == null) {
+            throw new IllegalArgumentException("Item not found in inventory.");
+        }
+        cart.getItems().merge(item.getId(), quantity, Integer::sum);
     }
 
 
@@ -30,8 +50,11 @@ public class CheckoutService {
         double total = 0.0;
         for (Map.Entry<String, Integer> entry : cart.getItems().entrySet()) {
             Item item = findItemById(inventory, entry.getKey());
+            if (item == null) {
+                continue;
+            }
             int quantity = entry.getValue();
-
+            
             if (item.getBulkQuantity() > 0 && quantity >= item.getBulkQuantity()) {
                 int bulkSets = quantity / item.getBulkQuantity();
                 int remainder = quantity % item.getBulkQuantity();
@@ -68,7 +91,7 @@ public class CheckoutService {
         return inventory.stream()
                 .filter(item -> item.getId().equals(itemId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Item not found"));
+                .orElse(null);
     }
 
     /**
@@ -77,5 +100,20 @@ public class CheckoutService {
      */
     public Cart getCart(Cart cart) {
         return cart;
+    }
+
+    public List<Discount> getDiscounts() {
+        return discounts;
+    }
+
+    public void setDiscounts(List<Discount> discounts) {
+        this.discounts = discounts;
+    }
+    public List<Item> getInventory() {
+        return inventory;
+    }
+
+    public void setInventory(List<Item> inventory) {
+        this.inventory = inventory;
     }
 }

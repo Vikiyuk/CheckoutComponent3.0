@@ -3,40 +3,39 @@ package com.example.checkout.controller;
 import com.example.checkout.model.Cart;
 import com.example.checkout.model.Discount;
 import com.example.checkout.model.Item;
+import com.example.checkout.request.ScanRequest;
 import com.example.checkout.service.CheckoutService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/checkout")
 @SessionAttributes("cart")
 public class CheckoutController {
-    List<Item> inventory = List.of(
-            new Item("A", "Apple", 40, 30, 3),
-            new Item("B", "Banana", 10, 7.5, 2)
-    );
 
-    List<Discount> discounts = List.of(
-            new Discount("A", "B", 5)
-    );
     @Autowired
     private CheckoutService checkoutService;
     @ModelAttribute("cart")
     public Cart initializeCart() {
         return new Cart();
     }
+
     /**
      * Adds an item to the virtual checkout cart by passing the item details.
      */
     @PostMapping("/scan")
-    public void scanItem(@RequestBody Item item, @ModelAttribute("cart") Cart cart) {
-        if (item == null || item.getId() == null || item.getName() == null) {
-            throw new IllegalArgumentException("Invalid item input");
+    public void scanItem(@RequestBody ScanRequest scanRequest, @ModelAttribute("cart") Cart cart) {
+        if (scanRequest.getItemId() == null || scanRequest.getItemId().trim().isEmpty()) {
+            throw new IllegalArgumentException("Invalid item ID");
         }
-        checkoutService.scanItem(item,cart);
+        Item item = checkoutService.getInventory().stream()
+                .filter(i -> i.getId().equals(scanRequest.getItemId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Item not found in inventory"));
+
+        checkoutService.scanItem(item, cart, scanRequest.getQuantity());
     }
+
 
     /**
      * Calculates the total cost of the items in the cart, applying any relevant discounts.
@@ -44,11 +43,7 @@ public class CheckoutController {
      */
     @GetMapping("/total")
     public double getTotal(@ModelAttribute("cart") Cart cart) {
-        try {
-            return checkoutService.calculateTotal(inventory, discounts,cart);
-        } catch (Exception e) {
-            throw new RuntimeException("Error calculating total: " + e.getMessage());
-        }
+        return checkoutService.calculateTotal(checkoutService.getInventory(), checkoutService.getDiscounts(), cart);
     }
 
     /**
@@ -58,11 +53,11 @@ public class CheckoutController {
      */
     @PostMapping("/pay")
     public String payAndGenerateReceipt(@ModelAttribute("cart") Cart cart) {
-        double total = checkoutService.calculateTotal(inventory, discounts,cart);
+        double total = checkoutService.calculateTotal(checkoutService.getInventory(), checkoutService.getDiscounts(),cart);
 
         StringBuilder receipt = new StringBuilder("Receipt:\n");
 
-        if (cart == null || cart.getItems() == null || cart.getItems().isEmpty()) {
+        if (cart.getItems() == null || cart.getItems().isEmpty()) {
             receipt.append("No items in the cart.\n");
             receipt.append("\nTotal: ").append(total).append("\n");
             return receipt.toString();
@@ -70,7 +65,7 @@ public class CheckoutController {
 
         receipt.append("\nPurchased Items:\n");
         cart.getItems().forEach((id, quantity) -> {
-            Item item = inventory.stream().filter(i -> i.getId().equals(id)).findFirst().orElse(null);
+            Item item = checkoutService.getInventory().stream().filter(i -> i.getId().equals(id)).findFirst().orElse(null);
             if (item != null) {
                 if (item.getBulkQuantity() > 0 && quantity >= item.getBulkQuantity()) {
                     int bulkSets = quantity / item.getBulkQuantity();
@@ -98,7 +93,7 @@ public class CheckoutController {
 
         boolean discountsApplied = false;
         StringBuilder discountDetails = new StringBuilder("\nApplied Discounts:\n");
-        for (Discount discount : discounts) {
+        for (Discount discount : checkoutService.getDiscounts()) {
             int countX = cart.getItems().getOrDefault(discount.getItemX(), 0);
             int countY = cart.getItems().getOrDefault(discount.getItemY(), 0);
             int applicableDiscounts = Math.min(countX, countY);

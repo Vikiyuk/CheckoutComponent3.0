@@ -31,7 +31,8 @@ public class SecurityConfig {
         //.requestMatchers(HttpMethod.POST, "/checkout/total").hasRole("USER")
             .requestMatchers("/api/checkout/cart").permitAll()
             .requestMatchers(HttpMethod.POST, "/api/checkout/scan").permitAll()
-            .requestMatchers(HttpMethod.POST, "/api/checkout/total").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/checkout/total").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/checkout/pay").permitAll()
             .anyRequest().denyAll());
         return http.build();
     }
