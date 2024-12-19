@@ -1,8 +1,14 @@
 package com.example.checkout.request;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+
 public class ScanRequest {
+    @NotBlank(message = "Item ID cannot be blank")
     private String itemId;
-    private int quantity = 1; // Default value
+
+    @Positive(message = "Quantity must be greater than zero")
+    private int quantity;
 
     // Getters and setters
     public String getItemId() {

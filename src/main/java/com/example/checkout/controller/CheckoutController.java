@@ -5,12 +5,15 @@ import com.example.checkout.model.Discount;
 import com.example.checkout.model.Item;
 import com.example.checkout.request.ScanRequest;
 import com.example.checkout.service.CheckoutService;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/checkout")
 @SessionAttributes("cart")
+@Validated
 public class CheckoutController {
 
     @Autowired
@@ -24,10 +27,7 @@ public class CheckoutController {
      * Adds an item to the virtual checkout cart by passing the item details.
      */
     @PostMapping("/scan")
-    public void scanItem(@RequestBody ScanRequest scanRequest, @ModelAttribute("cart") Cart cart) {
-        if (scanRequest.getItemId() == null || scanRequest.getItemId().trim().isEmpty()) {
-            throw new IllegalArgumentException("Invalid item ID");
-        }
+    public void scanItem(@Valid @RequestBody ScanRequest scanRequest, @ModelAttribute("cart") Cart cart) {
         Item item = checkoutService.getInventory().stream()
                 .filter(i -> i.getId().equals(scanRequest.getItemId()))
                 .findFirst()

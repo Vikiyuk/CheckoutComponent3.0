@@ -17,8 +17,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -38,7 +37,19 @@ public class CheckoutUnitTest {
         MockitoAnnotations.openMocks(this);
         mockMvc = MockMvcBuilders.standaloneSetup(checkoutController).build();
     }
+    @Test
+    void testScanItemWithInvalidQuantityThrowsException() throws Exception {
+        Cart cart = new Cart();
+        List<Item> mockInventory = List.of(new Item("A", "Apple", 40, 30, 3));
+        when(checkoutService.getInventory()).thenReturn(mockInventory);
 
+        mockMvc.perform(post("/api/checkout/scan")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"itemId\": \"A\", \"quantity\": -1}")
+                        .sessionAttr("cart", cart))
+                .andExpect(status().isBadRequest());
+
+    }
     @Test
     void testScanItem() throws Exception {
         Cart cart = new Cart();

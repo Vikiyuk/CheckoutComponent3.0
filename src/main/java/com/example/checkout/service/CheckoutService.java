@@ -10,7 +10,6 @@ import java.util.Map;
 
 @Service
 public class CheckoutService {
-    private final Cart cart = new Cart();
     private List<Item> inventory = List.of(
             new Item("A", "Apple", 40, 30, 3),
             new Item("B", "Banana", 10, 7.5, 2)
@@ -28,9 +27,8 @@ public class CheckoutService {
      * with the specified quantity.
      */
     public void scanItem(Item item, Cart cart, int quantity) {
-        if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be greater than zero.");
-        }
+
+
         Item foundItem = findItemById(inventory, item.getId());
         if (foundItem == null) {
             throw new IllegalArgumentException("Item not found in inventory.");
